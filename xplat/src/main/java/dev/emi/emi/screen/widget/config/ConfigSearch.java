@@ -42,7 +42,7 @@ public class ConfigSearch {
 
 		@Override
 		public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-			if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && isMouseOver(event.x(), event.y())) {
+			if (event.button() == InputConstants.MOUSE_BUTTON_RIGHT && isMouseOver(event.x(), event.y())) {
 				this.setValue("");
 				EmiPort.focus(this, true);
 				return true;

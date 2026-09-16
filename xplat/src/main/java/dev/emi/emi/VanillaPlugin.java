@@ -161,7 +161,6 @@ import dev.emi.emi.recipe.special.EmiSmithingTrimRecipe;
 import dev.emi.emi.registry.EmiTags;
 import dev.emi.emi.runtime.EmiDrawContext;
 import dev.emi.emi.runtime.EmiLog;
-import dev.emi.emi.runtime.EmiTagKey;
 import dev.emi.emi.runtime.EmiReloadLog;
 import dev.emi.emi.runtime.EmiTagKey;
 import dev.emi.emi.stack.serializer.FluidEmiStackSerializer;
@@ -171,7 +170,6 @@ import dev.emi.emi.stack.serializer.TagEmiIngredientSerializer;
 
 @EmiEntrypoint
 public class VanillaPlugin implements EmiPlugin {
-	private static final int COMPOSTER_MAX_LAYERS = 7;
 	public static EmiRecipeCategory TAG = new EmiRecipeCategory(EmiPort.id("emi:tag"),
 		EmiStack.of(Items.NAME_TAG), simplifiedRenderer(240, 208), EmiRecipeSorting.none());
 	
@@ -752,7 +750,7 @@ public class VanillaPlugin implements EmiPlugin {
 		if (compostable == null) {
 			return 0;
 		}
-		return EmiPort.getExpectedValue(compostable.layers()) / COMPOSTER_MAX_LAYERS;
+		return EmiPort.getExpectedValue(compostable.layers());
 	}
 
 	private static void compressRecipesToTags(Set<Item> stacks, Comparator<Item> comparator, Consumer<EmiTagKey<Item>> tagConsumer, Consumer<Item> itemConsumer) {

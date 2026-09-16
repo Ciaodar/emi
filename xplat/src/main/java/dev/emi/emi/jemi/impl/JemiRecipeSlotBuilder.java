@@ -232,8 +232,8 @@ public class JemiRecipeSlotBuilder implements IRecipeSlotBuilder {
 	@Override
 	public IRecipeSlotBuilder setPosition(int areaX, int areaY, int areaWidth, int areaHeight,
 			HorizontalAlignment horizontalAlignment, VerticalAlignment verticalAlignment) {
-		return setPosition(areaX + horizontalAlignment.getXPos(areaWidth, 18),
-			areaY + verticalAlignment.getYPos(areaHeight, 18));
+		return setPosition(areaX + horizontalAlignment.getXPos(areaWidth, getWidth()),
+			areaY + verticalAlignment.getYPos(areaHeight, getHeight()));
 	}
 
 	@Override
