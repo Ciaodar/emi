@@ -31,7 +31,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.BlockTransformer;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.component.Compostable;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.tags.ItemTags;
@@ -48,7 +54,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.component.DyedItemColor;
-import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.crafting.BannerDuplicateRecipe;
 import net.minecraft.world.item.crafting.BlastingRecipe;
 import net.minecraft.world.item.crafting.BookCloningRecipe;
@@ -64,8 +69,8 @@ import net.minecraft.world.item.crafting.DyeRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.SmithingTrimRecipe;
 import net.minecraft.world.item.crafting.SmithingTransformRecipe;
-import net.minecraft.world.item.crafting.RecipeMap;
 import net.minecraft.world.item.crafting.RecipeInput;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.RepairItemRecipe;
 import net.minecraft.world.item.crafting.ShapedRecipe;
@@ -77,19 +82,24 @@ import net.minecraft.world.item.crafting.SmokingRecipe;
 import net.minecraft.world.item.crafting.StonecutterRecipe;
 import net.minecraft.world.item.enchantment.Repairable;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.item.component.BlockTransformers;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.ComposterBlock;
+import net.minecraft.world.level.levelgen.blockpredicates.BlockPredicate;
+import net.minecraft.world.level.levelgen.blockpredicates.CombiningPredicate;
+import net.minecraft.world.level.levelgen.blockpredicates.MatchingBlockTagPredicate;
+import net.minecraft.world.level.levelgen.blockpredicates.MatchingBlocksPredicate;
+import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
+import net.minecraft.world.level.levelgen.feature.stateproviders.CopyPropertiesProvider;
+import net.minecraft.world.level.levelgen.feature.stateproviders.RuleBasedStateProvider;
+import net.minecraft.world.level.levelgen.feature.stateproviders.SimpleStateProvider;
 import net.minecraft.world.level.block.TallFlowerBlock;
-import net.minecraft.world.level.block.WeatheringCopper;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.mojang.datafixers.util.Pair;
 
 import dev.emi.emi.api.EmiEntrypoint;
 import dev.emi.emi.api.EmiInitRegistry;
@@ -119,10 +129,10 @@ import dev.emi.emi.handler.CookingRecipeHandler;
 import dev.emi.emi.handler.CraftingRecipeHandler;
 import dev.emi.emi.handler.InventoryRecipeHandler;
 import dev.emi.emi.handler.StonecuttingRecipeHandler;
-import dev.emi.emi.mixin.accessor.AxeItemAccessor;
+import dev.emi.emi.mixin.accessor.CombiningPredicateAccessor;
 import dev.emi.emi.mixin.accessor.HandledScreenAccessor;
-import dev.emi.emi.mixin.accessor.HoeItemAccessor;
-import dev.emi.emi.mixin.accessor.ShovelItemAccessor;
+import dev.emi.emi.mixin.accessor.MatchingBlockTagPredicateAccessor;
+import dev.emi.emi.mixin.accessor.MatchingBlocksPredicateAccessor;
 import dev.emi.emi.platform.EmiAgnos;
 import dev.emi.emi.platform.EmiClient;
 import dev.emi.emi.recipe.EmiAnvilRecipe;
@@ -151,6 +161,7 @@ import dev.emi.emi.recipe.special.EmiSmithingTrimRecipe;
 import dev.emi.emi.registry.EmiTags;
 import dev.emi.emi.runtime.EmiDrawContext;
 import dev.emi.emi.runtime.EmiLog;
+import dev.emi.emi.runtime.EmiTagKey;
 import dev.emi.emi.runtime.EmiReloadLog;
 import dev.emi.emi.runtime.EmiTagKey;
 import dev.emi.emi.stack.serializer.FluidEmiStackSerializer;
@@ -160,6 +171,7 @@ import dev.emi.emi.stack.serializer.TagEmiIngredientSerializer;
 
 @EmiEntrypoint
 public class VanillaPlugin implements EmiPlugin {
+	private static final int COMPOSTER_MAX_LAYERS = 7;
 	public static EmiRecipeCategory TAG = new EmiRecipeCategory(EmiPort.id("emi:tag"),
 		EmiStack.of(Items.NAME_TAG), simplifiedRenderer(240, 208), EmiRecipeSorting.none());
 	
@@ -562,18 +574,7 @@ public class VanillaPlugin implements EmiPlugin {
 		EmiIngredient axes = damagedTool(getPreferredTag(List.of(
 				"minecraft:axes", "c:axes", "c:tools/axes", "fabric:axes", "forge:tools/axes"
 			), EmiStack.of(Items.IRON_AXE)), 1);
-		for (Map.Entry<Block, Block> entry : AxeItemAccessor.getStrippedBlocks().entrySet()) {
-			Identifier id = synthetic("world/stripping", EmiUtil.subId(entry.getKey()));
-			addRecipeSafe(registry, () -> basicWorld(EmiStack.of(entry.getKey()), axes, EmiStack.of(entry.getValue()), id));
-		}
-		for (Map.Entry<Block, Block> entry : WeatheringCopper.PREVIOUS_BY_BLOCK.get().entrySet()) {
-			Identifier id = synthetic("world/stripping", EmiUtil.subId(entry.getKey()));
-			addRecipeSafe(registry, () -> basicWorld(EmiStack.of(entry.getKey()), axes, EmiStack.of(entry.getValue()), id));
-		}
-		for (Map.Entry<Block, Block> entry : HoneycombItem.WAX_OFF_BY_BLOCK.get().entrySet()) {
-			Identifier id = synthetic("world/stripping", EmiUtil.subId(entry.getKey()));
-			addRecipeSafe(registry, () -> basicWorld(EmiStack.of(entry.getKey()), axes, EmiStack.of(entry.getValue()), id));
-		}
+		addBlockTransforms(registry, axes, BlockTransformers.AXE, "world/stripping");
 		
 		EmiIngredient shears = damagedTool(EmiStack.of(Items.SHEARS), 1);
 		addRecipeSafe(registry, () -> EmiWorldInteractionRecipe.builder()
@@ -586,37 +587,12 @@ public class VanillaPlugin implements EmiPlugin {
 		EmiIngredient hoes = damagedTool(getPreferredTag(List.of(
 				"minecraft:hoes", "c:hoes", "c:tools/hoes", "fabric:hoes", "forge:tools/hoes"
 			), EmiStack.of(Items.IRON_HOE)), 1);
-		for (Map.Entry<Block, Pair<Predicate<UseOnContext>, Consumer<UseOnContext>>> entry
-				: HoeItemAccessor.getTillingActions().entrySet()) {
-			Consumer<UseOnContext> consumer = entry.getValue().getSecond();
-			if (EmiClient.HOE_ACTIONS.containsKey(consumer)) {
-				Block b = entry.getKey();
-				Identifier id = synthetic("world/tilling", EmiUtil.subId(b));
-				List<EmiStack> list = EmiClient.HOE_ACTIONS.get(consumer).stream().map(EmiStack::of).toList();
-				if (list.size() == 1) {
-					addRecipeSafe(registry, () -> basicWorld(EmiStack.of(b), hoes, list.get(0), id));
-				} else if (list.size() == 2) {
-					addRecipeSafe(registry, () -> EmiWorldInteractionRecipe.builder()
-						.id(id)
-						.leftInput(EmiStack.of(b))
-						.rightInput(hoes, true)
-						.output(list.get(0))
-						.output(list.get(1))
-						.build());
-				} else {
-					EmiReloadLog.warn("Encountered hoe action of peculiar size " + list.size() + ", skipping.");
-				}
-			}
-		}
+		addBlockTransforms(registry, hoes, BlockTransformers.HOE, "world/tilling");
 
 		EmiIngredient shovels = damagedTool(getPreferredTag(List.of(
 				"minecraft:shovels", "c:shovels", "c:tools/shovels", "fabric:shovels", "forge:tools/shovels"
 			), EmiStack.of(Items.IRON_SHOVEL)), 1);
-		for (Map.Entry<Block, BlockState> entry : ShovelItemAccessor.getPathStates().entrySet()) {
-			Block result = entry.getValue().getBlock();
-			Identifier id = synthetic("world/flattening", EmiUtil.subId(entry.getKey()));
-			addRecipeSafe(registry, () -> basicWorld(EmiStack.of(entry.getKey()), shovels, EmiStack.of(result), id));
-		}
+		addBlockTransforms(registry, shovels, BlockTransformers.SHOVEL, "world/flattening");
 
 		EmiIngredient honeycomb = EmiStack.of(Items.HONEYCOMB);
 		for (Map.Entry<Block, Block> entry : HoneycombItem.WAXABLES.get().entrySet()) {
@@ -746,20 +722,37 @@ public class VanillaPlugin implements EmiPlugin {
 	}
 
 	private static void addComposting(EmiRegistry registry, Set<Item> hiddenItems) {
-		compressRecipesToTags(ComposterBlock.COMPOSTABLES.keySet().stream()
-			.map(ItemLike::asItem).collect(Collectors.toSet()), (a, b) -> {
-				return Float.compare(ComposterBlock.COMPOSTABLES.getFloat(a), ComposterBlock.COMPOSTABLES.getFloat(b));
+		Set<Item> compostables = Sets.newHashSet();
+		for (Item item : EmiPort.getItemRegistry()) {
+			if (getCompostChance(item) > 0) {
+				compostables.add(item);
+			}
+		}
+		compressRecipesToTags(compostables, (a, b) -> {
+				return Float.compare(getCompostChance(a), getCompostChance(b));
 			}, tag -> {
 				EmiIngredient stack = EmiIngredient.of(tag.raw());
 				Item item = stack.getEmiStacks().get(0).getItemStack().getItem();
-				float chance = ComposterBlock.COMPOSTABLES.getFloat(item);
+				float chance = getCompostChance(item);
 				registry.addRecipe(new EmiCompostingRecipe(stack, chance, synthetic("composting/tag", EmiUtil.subId(tag.id()))));
 			}, item -> {
 				if (!hiddenItems.contains(item)) {
-					float chance = ComposterBlock.COMPOSTABLES.getFloat(item);
+					float chance = getCompostChance(item);
 					registry.addRecipe(new EmiCompostingRecipe(EmiStack.of(item), chance, synthetic("composting/item", EmiUtil.subId(item))));
 				}
 			});
+	}
+
+	/**
+	 * Since 26.3 the items a composter accepts, and their chances, are defined by the
+	 * {@code compostable} data component.
+	 */
+	private static float getCompostChance(Item item) {
+		Compostable compostable = item.getDefaultInstance().get(DataComponents.COMPOSTABLE);
+		if (compostable == null) {
+			return 0;
+		}
+		return EmiPort.getExpectedValue(compostable.layers()) / COMPOSTER_MAX_LAYERS;
 	}
 
 	private static void compressRecipesToTags(Set<Item> stacks, Comparator<Item> comparator, Consumer<EmiTagKey<Item>> tagConsumer, Consumer<Item> itemConsumer) {
@@ -798,12 +791,86 @@ public class VanillaPlugin implements EmiPlugin {
 		return EmiPort.id("emi", "/" + type + "/" + name);
 	}
 
+	/**
+	 * Registers the block transformations a tool performs (stripping, tilling, flattening, ...).
+	 * Since 26.3 these are defined by the data driven {@link BlockTransformer} registry rather
+	 * than by hardcoded maps on the tool items.
+	 */
+	private static void addBlockTransforms(EmiRegistry registry, EmiIngredient tool, ResourceKey<BlockTransformer> key, String syntheticPath) {
+		for (Map.Entry<Block, Block> entry : getBlockTransforms(key).entrySet()) {
+			Identifier id = synthetic(syntheticPath, EmiUtil.subId(entry.getKey()));
+			addRecipeSafe(registry, () -> basicWorld(EmiStack.of(entry.getKey()), tool, EmiStack.of(entry.getValue()), id));
+		}
+	}
+
+	private static Map<Block, Block> getBlockTransforms(ResourceKey<BlockTransformer> key) {
+		Minecraft client = Minecraft.getInstance();
+		BlockTransformer transformer = null;
+		if (client.level != null) {
+			transformer = client.level.registryAccess().lookup(Registries.BLOCK_TRANSFORMER)
+				.flatMap(registry -> registry.get(key)).map(Holder::value).orElse(null);
+		}
+		if (transformer == null) {
+			return Map.of();
+		}
+		Map<Block, Block> map = Maps.newLinkedHashMap();
+		for (BlockTransformer.BlockTransformData data : transformer.transforms()) {
+			collectBlockTransforms(data.blockStateProvider().value(), map);
+		}
+		return map;
+	}
+
+	private static void collectBlockTransforms(BlockStateProvider provider, Map<Block, Block> map) {
+		if (provider instanceof RuleBasedStateProvider rules) {
+			for (RuleBasedStateProvider.Rule rule : rules.rules()) {
+				Block result = getTransformedBlock(rule.then().value());
+				if (result != null) {
+					for (Block block : getPredicateBlocks(rule.ifTrue())) {
+						map.put(block, result);
+					}
+				}
+			}
+		}
+	}
+
+	private static @Nullable Block getTransformedBlock(BlockStateProvider provider) {
+		if (provider instanceof SimpleStateProvider simple) {
+			return simple.state().getBlock();
+		} else if (provider instanceof CopyPropertiesProvider copy) {
+			return getTransformedBlock(copy.source().value());
+		}
+		return null;
+	}
+
+	private static List<Block> getPredicateBlocks(BlockPredicate predicate) {
+		if (predicate instanceof MatchingBlocksPredicate matching) {
+			return ((MatchingBlocksPredicateAccessor) matching).emi$getBlocks().stream().map(Holder::value).toList();
+		} else if (predicate instanceof MatchingBlockTagPredicate matching) {
+			return EmiTagKey.of(((MatchingBlockTagPredicateAccessor) matching).emi$getTag()).getList();
+		} else if (predicate instanceof CombiningPredicate combining) {
+			// Compound checks describe the surroundings as well; the first entry that names
+			// blocks is the one testing the block being transformed.
+			for (BlockPredicate child : ((CombiningPredicateAccessor) combining).emi$getPredicates()) {
+				List<Block> blocks = getPredicateBlocks(child);
+				if (!blocks.isEmpty()) {
+					return blocks;
+				}
+			}
+		}
+		return List.of();
+	}
+
 	@SuppressWarnings("unchecked")
 	private static <C extends RecipeInput, T extends Recipe<C>> Iterable<T> getRecipes(EmiRegistry registry, RecipeType<T> type) {
-		RecipeMap map = registry.getRecipeMap();
-		if (map != null) {
-			return map.byType(type).stream()
-				.map(e -> (T) e.value())::iterator;
+		Collection<RecipeHolder<?>> recipes = registry.getRecipes();
+		if (recipes != null) {
+			List<T> list = Lists.newArrayList();
+			for (RecipeHolder<?> holder : recipes) {
+				if (holder.value().getType() == type) {
+					list.add((T) holder.value());
+				}
+			}
+			return list;
 		}
 		return List.of();
 	}

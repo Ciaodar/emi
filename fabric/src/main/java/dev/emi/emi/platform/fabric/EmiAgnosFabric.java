@@ -1,6 +1,7 @@
 package dev.emi.emi.platform.fabric;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -20,7 +21,6 @@ import dev.emi.emi.api.FabricEmiStack;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.stack.FluidEmiStack;
-import dev.emi.emi.mixin.accessor.BrewingRecipeRegistryAccessor;
 import dev.emi.emi.platform.EmiAgnos;
 import dev.emi.emi.recipe.EmiBrewingRecipe;
 import dev.emi.emi.registry.EmiPluginContainer;
@@ -30,8 +30,7 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 
-import net.minecraft.world.item.crafting.RecipeMap;
-import net.minecraft.world.level.block.entity.FuelValues;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.fabricmc.fabric.api.transfer.v1.client.fluid.FluidVariantRendering;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
@@ -49,21 +48,20 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.PotionItem;
 import net.minecraft.world.item.alchemy.Potion;
-import net.minecraft.world.item.alchemy.PotionBrewing;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.material.Fluid;
 
 public class EmiAgnosFabric extends EmiAgnos {
-	private static RecipeMap receivedRecipeMap;
+	private static Collection<RecipeHolder<?>> receivedRecipes;
 
 	static {
 		EmiAgnos.delegate = new EmiAgnosFabric();
 	}
 
-	public static void setReceivedRecipeMap(RecipeMap recipeMap) {
-		receivedRecipeMap = recipeMap;
+	public static void setReceivedRecipes(Collection<RecipeHolder<?>> recipes) {
+		receivedRecipes = recipes;
 	}
 
 	@Override
@@ -141,59 +139,6 @@ public class EmiAgnosFabric extends EmiAgnos {
 		return list;
 	}
 
-	@Override
-	protected void addBrewingRecipesAgnos(EmiRegistry registry) {
-		PotionBrewing brewingRegistry = Minecraft.getInstance().level != null ? Minecraft.getInstance().level.potionBrewing() : PotionBrewing.EMPTY;
-		BrewingRecipeRegistryAccessor brewingRegistryAccess = (BrewingRecipeRegistryAccessor)brewingRegistry;
-		for (Ingredient ingredient : brewingRegistryAccess.getPotionTypes()) {
-			for (ItemStack stack : ingredient.items().map(h -> new ItemStack(h.value())).toArray(ItemStack[]::new)) {
-				String pid = EmiUtil.subId(stack.getItem());
-				for (PotionBrewing.Mix<Potion> recipe : brewingRegistryAccess.getPotionRecipes()) {
-					try {
-						Ingredient recipeIngredient = recipe.ingredient();
-						if (!recipeIngredient.items().findAny().isEmpty()) {
-						Identifier id = EmiPort.id("emi", "/brewing/" + pid
-							+ "/" + EmiUtil.subId(recipeIngredient.items().findFirst().get().value())
-							+ "/" + EmiUtil.subId(EmiPort.getPotionRegistry().getKey(recipe.from().value()))
-							+ "/" + EmiUtil.subId(EmiPort.getPotionRegistry().getKey(recipe.to().value())));
-						registry.addRecipe(new EmiBrewingRecipe(
-							EmiStack.of(EmiPort.setPotion(stack.copy(), recipe.from().value())), EmiIngredient.of(recipeIngredient),
-							EmiStack.of(EmiPort.setPotion(stack.copy(), recipe.to().value())), id));
-					}
-					} catch (Exception e) {
-						EmiLog.error("Error registering brewing recipe", e);
-					}
-				}
-			}
-		}
-
-		for (PotionBrewing.Mix<Item> recipe : brewingRegistryAccess.getItemRecipes()) {
-			try {
-				Ingredient recipeIngredient = recipe.ingredient();
-				if (!recipeIngredient.items().findAny().isEmpty()) {
-					String gid = EmiUtil.subId(recipeIngredient.items().findFirst().get().value());
-					String iid = EmiUtil.subId(recipe.from().value());
-					String oid = EmiUtil.subId(recipe.to().value());
-					Consumer<Holder<Potion>> potionRecipeGen = entry -> {
-						if (brewingRegistry.isBrewablePotion(entry)) {
-							Identifier id = EmiPort.id("emi", "/brewing/item/"
-								+ EmiUtil.subId(entry.unwrapKey().get().identifier()) + "/" + gid + "/" + iid + "/" + oid);
-							registry.addRecipe(new EmiBrewingRecipe(
-								EmiStack.of(EmiPort.setPotion(new ItemStack(recipe.from().value()), entry.value())), EmiIngredient.of(recipeIngredient),
-								EmiStack.of(EmiPort.setPotion(new ItemStack(recipe.to().value()), entry.value())), id));
-						}
-					};
-					if (recipe.from().value() instanceof PotionItem) {
-						EmiPort.getPotionRegistry().listElements().forEach(potionRecipeGen);
-					} else {
-						potionRecipeGen.accept(Potions.AWKWARD);
-					}
-				}
-			} catch (Exception e) {
-				EmiLog.error("Error registering brewing recipe", e);
-			}
-		}
-	}
 
 	@Override
 	protected List<ClientTooltipComponent> getItemTooltipAgnos(ItemStack stack) {
@@ -239,21 +184,6 @@ public class EmiAgnosFabric extends EmiAgnos {
 		return true;
 	}
 
-	@Override
-	protected Map<Item, Integer> getFuelMapAgnos() {
-		Object2IntMap<Item> fuelMap = new Object2IntOpenHashMap<>();
-		Minecraft client = Minecraft.getInstance();
-		if (client.level != null) {
-			FuelValues fuelValues = client.level.fuelValues();
-			for (Item item : fuelValues.fuelItems()) {
-				int time = fuelValues.burnDuration(new ItemStack(item));
-				if (time > 0) {
-					fuelMap.put(item, time);
-				}
-			}
-		}
-		return fuelMap;
-	}
 
 	@Override
 	protected boolean isEnchantableAgnos(ItemStack stack, Enchantment enchantment) {
@@ -261,7 +191,7 @@ public class EmiAgnosFabric extends EmiAgnos {
 	}
 
 	@Override
-	protected @Nullable RecipeMap getRecipeMapAgnos() {
-		return receivedRecipeMap;
+	protected @Nullable Collection<RecipeHolder<?>> getRecipesAgnos() {
+		return receivedRecipes;
 	}
 }

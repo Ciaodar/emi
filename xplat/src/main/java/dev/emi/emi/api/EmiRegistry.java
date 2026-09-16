@@ -8,7 +8,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.crafting.RecipeMap;
+import java.util.Collection;
+import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import org.jetbrains.annotations.ApiStatus;
 
 import dev.emi.emi.api.recipe.EmiRecipe;
@@ -51,7 +53,11 @@ public interface EmiRegistry {
 	/**
 	 * @return The vanilla recipe map, for iterating recipe types.
 	 */
-	RecipeMap getRecipeMap();
+	/**
+	 * All recipes known to the client, or null when no recipes have been synchronized yet.
+	 */
+	@Nullable
+	Collection<RecipeHolder<?>> getRecipes();
 	
 	/**
 	 * Adds a recipe category.

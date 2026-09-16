@@ -10,7 +10,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.crafting.RecipeMap;
+import java.util.Collection;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import com.google.common.collect.Lists;
 
 import dev.emi.emi.EmiPort;
@@ -51,8 +52,8 @@ public class EmiRegistryImpl implements EmiRegistry {
 	}
 
 	@Override
-	public RecipeMap getRecipeMap() {
-		return EmiPort.getRecipeMap();
+	public Collection<RecipeHolder<?>> getRecipes() {
+		return EmiPort.getRecipes();
 	}
 
 	@Override

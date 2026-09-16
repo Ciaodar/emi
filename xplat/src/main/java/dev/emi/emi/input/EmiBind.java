@@ -14,7 +14,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.emi.emi.EmiPort;
 
 public class EmiBind {
-	public static final EmiBind LEFT_CLICK = new EmiBind("", new EmiBind.ModifiedKey(InputConstants.Type.MOUSE.getOrCreate(0), 0));
+	public static final EmiBind LEFT_CLICK = new EmiBind("", new EmiBind.ModifiedKey(InputConstants.Type.MOUSE.getOrCreate(InputConstants.MOUSE_BUTTON_LEFT), 0));
 	public static final int MAX_BINDS = 4;
 	public final String translationKey;
 	public final List<ModifiedKey> defaultKeys;
@@ -91,8 +91,8 @@ public class EmiBind {
 	public boolean isHeld() {
 		for (ModifiedKey boundKey : boundKeys) {
 			if (EmiInput.getCurrentModifiers() == boundKey.modifiersToMatch()) {
-				if (boundKey.key.getType() == InputConstants.Type.KEYSYM && boundKey.key.getValue() != -1) {
-					if (InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), boundKey.key.getValue())) {
+				if (boundKey.key.getType() == InputConstants.Type.KEYBOARD && boundKey.key.getValue() != -1) {
+					if (InputConstants.isKeyDown(boundKey.key.getValue())) {
 						return true;
 					}
 				}
@@ -101,17 +101,14 @@ public class EmiBind {
 		return false;
 	}
 
-	public boolean matchesKey(int keyCode, int scanCode) {
+	public boolean matchesKey(int keyCode) {
+		if (keyCode == InputConstants.UNKNOWN.getValue()) {
+			return false;
+		}
 		for (ModifiedKey boundKey : boundKeys) {
 			if (EmiInput.getCurrentModifiers() == boundKey.modifiersToMatch()) {
-				if (keyCode == InputConstants.UNKNOWN.getValue()) {
-					if (boundKey.key.getType() == InputConstants.Type.SCANCODE && boundKey.key.getValue() == scanCode) {
-						return true;
-					}
-				} else {
-					if (boundKey.key.getType() == InputConstants.Type.KEYSYM && boundKey.key.getValue() == keyCode) {
-						return true;
-					}
+				if (boundKey.key.getType() == InputConstants.Type.KEYBOARD && boundKey.key.getValue() == keyCode) {
+					return true;
 				}
 			}
 		}
@@ -156,7 +153,7 @@ public class EmiBind {
 	public static record ModifiedKey(InputConstants.Key key, int modifiers) {
 
 		public static ModifiedKey of(int code, int modifiers) {
-			return new ModifiedKey(InputConstants.Type.KEYSYM.getOrCreate(code), modifiers);
+			return new ModifiedKey(InputConstants.Type.KEYBOARD.getOrCreate(code), modifiers);
 		}
 
 		public String toName() {
@@ -176,7 +173,7 @@ public class EmiBind {
 
 		public int modifiersToMatch() {
 			int modifiers = this.modifiers;
-			if (key.getType() == InputConstants.Type.KEYSYM) {
+			if (key.getType() == InputConstants.Type.KEYBOARD) {
 				modifiers ^= EmiInput.maskFromCode(key.getValue());
 			}
 			return modifiers;

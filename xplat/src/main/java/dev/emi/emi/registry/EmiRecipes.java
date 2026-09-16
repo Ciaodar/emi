@@ -68,10 +68,10 @@ public class EmiRecipes {
 		byWorkstation.clear();
 		decorators.clear();
 		manager = Manager.EMPTY;
-		RecipeMap map = EmiPort.getRecipeMap();
+		Collection<RecipeHolder<?>> recipes = EmiPort.getRecipes();
 		recipeIds = new Reference2ObjectOpenHashMap<>();
-		if (map != null) {
-			for (RecipeHolder<?> entry : map.values()) {
+		if (recipes != null) {
+			for (RecipeHolder<?> entry : recipes) {
 				recipeIds.put(entry.value(), entry.id().identifier());
 			}
 		}

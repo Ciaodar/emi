@@ -4,24 +4,38 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.component.predicates.PotionsPredicate;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.component.CookingFuel;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.crafting.BrewingRecipe;
+import net.minecraft.world.item.crafting.PotionIngredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.RecipeMap;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.jetbrains.annotations.Nullable;
+import dev.emi.emi.EmiPort;
 import dev.emi.emi.api.EmiRegistry;
+import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.stack.FluidEmiStack;
+import dev.emi.emi.recipe.EmiBrewingRecipe;
 import dev.emi.emi.registry.EmiPluginContainer;
+import dev.emi.emi.runtime.EmiLog;
 
 public abstract class EmiAgnos {
 	public static EmiAgnos delegate;
@@ -99,7 +113,62 @@ public abstract class EmiAgnos {
 		delegate.addBrewingRecipesAgnos(registry);
 	}
 
-	protected abstract void addBrewingRecipesAgnos(EmiRegistry registry);
+	/**
+	 * Brewing is a regular recipe type as of 26.3, so this is platform independent.
+	 */
+	protected void addBrewingRecipesAgnos(EmiRegistry registry) {
+		for (RecipeHolder<BrewingRecipe> holder : getBrewingRecipes()) {
+			BrewingRecipe recipe = holder.value();
+			try {
+				EmiIngredient reagent = EmiIngredient.of(recipe.getReagent().ingredient());
+				if (reagent.isEmpty()) {
+					continue;
+				}
+				EmiStack output = EmiStack.of(recipe.getOutput().create());
+				List<EmiStack> inputs = getBrewingInputs(recipe.getInput());
+				for (int i = 0; i < inputs.size(); i++) {
+					Identifier id = holder.id().identifier();
+					if (i > 0) {
+						id = EmiPort.id(id.getNamespace(), id.getPath() + "_" + i);
+					}
+					registry.addRecipe(new EmiBrewingRecipe(inputs.get(i), reagent, output, id));
+				}
+			} catch (Exception e) {
+				EmiLog.error("Error registering brewing recipe " + holder.id().identifier(), e);
+			}
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<RecipeHolder<BrewingRecipe>> getBrewingRecipes() {
+		Collection<RecipeHolder<?>> recipes = getRecipes();
+		if (recipes == null) {
+			return List.of();
+		}
+		List<RecipeHolder<BrewingRecipe>> list = Lists.newArrayList();
+		for (RecipeHolder<?> holder : recipes) {
+			if (holder.value() instanceof BrewingRecipe) {
+				list.add((RecipeHolder<BrewingRecipe>) holder);
+			}
+		}
+		return list;
+	}
+
+	private static List<EmiStack> getBrewingInputs(PotionIngredient ingredient) {
+		List<ItemStack> bases = ingredient.ingredient().items()
+			.map(holder -> new ItemStack(holder.value())).toList();
+		Optional<HolderSet<Potion>> potions = ingredient.potions().flatMap(PotionsPredicate::potions);
+		if (potions.isEmpty()) {
+			return bases.stream().map(EmiStack::of).toList();
+		}
+		List<EmiStack> stacks = Lists.newArrayList();
+		for (Holder<Potion> potion : potions.get()) {
+			for (ItemStack base : bases) {
+				stacks.add(EmiStack.of(EmiPort.setPotion(base.copy(), potion.value())));
+			}
+		}
+		return stacks;
+	}
 
 	public static List<ClientTooltipComponent> getItemTooltip(ItemStack stack) {
 		return delegate.getItemTooltipAgnos(stack);
@@ -151,7 +220,22 @@ public abstract class EmiAgnos {
 		return delegate.getFuelMapAgnos();
 	}
 
-	protected abstract Map<Item, Integer> getFuelMapAgnos();
+	/**
+	 * Fuels are defined by the cooking fuel data component as of 26.3, so this is platform independent.
+	 */
+	protected Map<Item, Integer> getFuelMapAgnos() {
+		Map<Item, Integer> fuelMap = Maps.newLinkedHashMap();
+		for (Item item : EmiPort.getItemRegistry()) {
+			CookingFuel fuel = item.getDefaultInstance().get(DataComponents.COOKING_FUEL);
+			if (fuel != null) {
+				int time = (int) EmiPort.getExpectedValue(fuel.burnTime());
+				if (time > 0) {
+					fuelMap.put(item, time);
+				}
+			}
+		}
+		return fuelMap;
+	}
 
 	public static boolean isEnchantable(ItemStack stack, Enchantment enchantment) {
 		return delegate.isEnchantableAgnos(stack, enchantment);
@@ -159,9 +243,9 @@ public abstract class EmiAgnos {
 	
 	protected abstract boolean isEnchantableAgnos(ItemStack stack, Enchantment enchantment);
 
-	public static @Nullable RecipeMap getRecipeMap() {
-		return delegate.getRecipeMapAgnos();
+	public static @Nullable Collection<RecipeHolder<?>> getRecipes() {
+		return delegate.getRecipesAgnos();
 	}
 
-	protected @Nullable RecipeMap getRecipeMapAgnos() { return null; }
+	protected @Nullable Collection<RecipeHolder<?>> getRecipesAgnos() { return null; }
 }

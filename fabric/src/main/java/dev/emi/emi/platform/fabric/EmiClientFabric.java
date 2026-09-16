@@ -1,5 +1,6 @@
 package dev.emi.emi.platform.fabric;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -67,13 +68,13 @@ public class EmiClientFabric implements ClientModInitializer {
 		registerVanillaRecipeSerializers();
 
 		ClientRecipeSynchronizedEvent.EVENT.register((client, recipes) -> {
-			EmiAgnosFabric.setReceivedRecipeMap(RecipeMap.create(recipes.recipes()));
+			EmiAgnosFabric.setReceivedRecipes(recipes.recipes());
 			EmiReloadManager.reloadRecipes();
 			EmiReloadManager.reloadTags();
 		});
 
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-			EmiAgnosFabric.setReceivedRecipeMap(null);
+			EmiAgnosFabric.setReceivedRecipes(null);
 		});
 	}
 

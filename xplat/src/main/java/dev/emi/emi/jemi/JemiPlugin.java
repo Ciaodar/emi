@@ -294,8 +294,8 @@ public class JemiPlugin implements IModPlugin, EmiPlugin {
 		Set<EmiRecipe> replacements = Sets.newHashSet();
 		List<RecipeHolder<CraftingRecipe>> recipes = Stream.concat(
 			runtime.getRecipeManager().createRecipeLookup(category.getRecipeType()).includeHidden().get(),
-			registry.getRecipeMap() != null
-				? registry.getRecipeMap().values().stream()
+			registry.getRecipes() != null
+				? registry.getRecipes().stream()
 					.filter(h -> h.value() instanceof CraftingRecipe && h.value() instanceof CustomRecipe)
 					.map(h -> {
 						@SuppressWarnings("unchecked")

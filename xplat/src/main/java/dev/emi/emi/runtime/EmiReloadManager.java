@@ -149,7 +149,7 @@ public class EmiReloadManager {
 					if (client.level == null) {
 						EmiReloadLog.warn("World is null");
 						break;
-					} else if (EmiPort.getRecipeMap() == null) {
+					} else if (EmiPort.getRecipes() == null) {
 						EmiReloadLog.warn("Recipe Manager is null");
 						break;
 					}

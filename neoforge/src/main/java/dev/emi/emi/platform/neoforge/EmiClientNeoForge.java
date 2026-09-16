@@ -62,13 +62,13 @@ public class EmiClientNeoForge {
 	}
 
 	public static void recipesReceived(RecipesReceivedEvent event) {
-		EmiAgnosNeoForge.setReceivedRecipeMap(event.getRecipeMap());
+		EmiAgnosNeoForge.setReceivedRecipes(event.getRecipeMap().values());
 		EmiReloadManager.reloadRecipes();
 		EmiReloadManager.reloadTags();
 	}
 
 	public static void playerLoggedOut(ClientPlayerNetworkEvent.LoggingOut event) {
-		EmiAgnosNeoForge.setReceivedRecipeMap(null);
+		EmiAgnosNeoForge.setReceivedRecipes(null);
 	}
 
 	public static void renderScreenForeground(ScreenEvent.Render.Foreground event) {

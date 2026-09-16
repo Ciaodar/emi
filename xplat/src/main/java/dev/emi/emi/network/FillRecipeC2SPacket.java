@@ -1,5 +1,6 @@
 package dev.emi.emi.network;
 
+import net.minecraft.util.Prediction;
 import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.network.FriendlyByteBuf;
@@ -128,7 +129,7 @@ public class FillRecipeC2SPacket implements EmiPacket {
 					if (gotten != stack.getCount()) {
 						if (gotten > 0) {
 							stack.setCount(gotten);
-							player.getInventory().placeItemBackInInventory(stack);
+							player.getInventory().placeItemBackInInventory(stack, Prediction.SERVER_ONLY);
 						}
 						return;
 					} else {
@@ -141,13 +142,13 @@ public class FillRecipeC2SPacket implements EmiPacket {
 									s.setByPlayer(ItemStack.EMPTY);
 									s.onTake(player, taken);
 								} else {
-									player.getInventory().placeItemBackInInventory(stack);
+									player.getInventory().placeItemBackInInventory(stack, Prediction.SERVER_ONLY);
 									continue;
 								}
 							}
 							s.setByPlayer(stack);
 						} else {
-							player.getInventory().placeItemBackInInventory(stack);
+							player.getInventory().placeItemBackInInventory(stack, Prediction.SERVER_ONLY);
 						}
 					}
 				}
@@ -160,7 +161,7 @@ public class FillRecipeC2SPacket implements EmiPacket {
 				}
 			} finally {
 				for (ItemStack stack : rubble) {
-					player.getInventory().placeItemBackInInventory(stack);
+					player.getInventory().placeItemBackInInventory(stack, Prediction.SERVER_ONLY);
 				}
 			}
 		}

@@ -50,7 +50,7 @@ public class JemiIngredientAcceptor implements IIngredientAcceptor<JemiIngredien
 		if (mc.level != null) {
 			return SlotDisplayContext.fromLevel(mc.level);
 		}
-		return new ContextMap.Builder().create(SlotDisplayContext.CONTEXT);
+		return ContextMap.builder().buildAndValidate(SlotDisplayContext.CONTEXT);
 	}
 
 	@SuppressWarnings({"rawtypes", "unchecked"})

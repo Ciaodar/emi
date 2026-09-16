@@ -8,16 +8,17 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.CommandEncoder;
-import com.mojang.blaze3d.systems.RenderPass;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
+import com.mojang.renderpearl.api.commands.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.ProjectionType;
-import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTexture;
 import dev.emi.emi.EmiPort;
 import dev.emi.emi.config.EmiConfig;
 import org.joml.Matrix4f;
@@ -46,7 +47,7 @@ public class EmiScreenshotRecorder {
 			scale = EmiConfig.recipeScreenshotScale;
 		}
 
-		RenderTarget framebuffer = new TextureTarget("EMI Screenshot", width * scale, height * scale, true, com.mojang.blaze3d.GpuFormat.RGBA8_UNORM);
+		RenderTarget framebuffer = new TextureTarget("EMI Screenshot", width * scale, height * scale, GpuFormat.RGBA8_UNORM, GpuFormat.D32_FLOAT);
 
 		GpuTexture colorTexture = framebuffer.getColorTexture();
 		if (colorTexture != null) {

@@ -53,7 +53,7 @@ public class StonecuttingRecipeHandler implements StandardRecipeHandler<Stonecut
 		boolean action = StandardRecipeHandler.super.craft(recipe, context);
 		Minecraft client = Minecraft.getInstance();
 		SingleRecipeInput inv = new SingleRecipeInput(recipe.getInputs().get(0).getEmiStacks().get(0).getItemStack());
-		List<StonecutterRecipe> recipes = EmiPort.getRecipeMap().values().stream()
+		List<StonecutterRecipe> recipes = EmiPort.getRecipes().stream()
 			.filter(h -> h.value() instanceof StonecutterRecipe sr && sr.matches(inv, client.level))
 			.map(RecipeHolder::value).map(r -> (StonecutterRecipe) r).toList();
 		for (int i = 0; i < recipes.size(); i++) {
