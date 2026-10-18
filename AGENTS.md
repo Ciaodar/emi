@@ -35,30 +35,10 @@ java.lang.NoClassDefFoundError: dev/emi/emi/mixin/GlobalMixin
   ... ModLoadingException: EMI (emi) has class loading errors
 ```
 
-Fix it by generating the class list and rebuilding the jar once:
+Fix it by generating the class list once:
 
 ```
-JAVA_HOME=/path/to/jdk-25 ./gradlew :xplat:generateClassLists :xplat:jar
+JAVA_HOME=/path/to/jdk-25 ./gradlew :xplat:generateClassLists
 ```
 
 This is only a dev-environment concern; shipped jars contain `GlobalMixin` already.
-
-## Minecraft 26.3 API notes
-
-Several systems EMI relied on became data driven or moved to SDL:
-
-- Keyboard/mouse input uses SDL. `org.lwjgl.glfw` is gone; use
-  `com.mojang.blaze3d.platform.InputConstants.KEY_*` / `MOD_*` and the single argument
-  `InputConstants.isKeyDown(int)`. `KeyEvent.scancode()` is now `KeyEvent.keycode()` and
-  `InputConstants.Type.SCANCODE` no longer exists.
-- Tool block transformations (stripping, tilling, flattening) are defined by the
-  `BlockTransformer` registry instead of maps on `AxeItem` / `ShovelItem` / `HoeItem`,
-  which no longer exist.
-- Brewing, fuels and composting are data driven through the `brewing` recipe type and the
-  `COOKING_FUEL` / `COMPOSTABLE` data components.
-- Clients no longer receive a `RecipeMap`; Fabric provides `SynchronizedRecipes` and
-  NeoForge patches in `RecipeMap.createClient`. EMI therefore stores a flat
-  `Collection<RecipeHolder<?>>` and filters by type itself.
-- Rendering moved `GpuTexture` / `GpuBuffer` / `GpuBufferSlice` / `CommandEncoder` /
-  `RenderPass` / `RenderPipeline` / `GpuFormat` into `com.mojang.renderpearl.api.*`, and
-  item quads are grouped in `ItemQuads`.
